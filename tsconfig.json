@@ -1,0 +1,22 @@
+{
+  "compilerOptions": 
+  {
+    "module": "ESNext",
+    "target": "ESNext",
+    "jsx": "react",
+    "importHelpers": true,
+    "moduleResolution": "node", //Makes your editor acknowledge node imports/requires
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "resolveJsonModule": true, //to import json files withing js/ts files
+    "esModuleInterop": true, //neeeded as well to import json files
+    "outDir": "dist/",
+    "inlineSourceMap": true,
+    "declaration": true,
+    "strictNullChecks": true,
+    "isolatedModules": false,
+  },
+  "compileOnSave": true,
+  "include": ["src"],
+  "exclude": ["node_modules","dist"]
+}

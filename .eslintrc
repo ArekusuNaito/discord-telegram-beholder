@@ -1,0 +1,40 @@
+{
+  "root": true,
+  "extends": [
+    "standard-with-typescript"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "project":"./tsconfig.json"
+  },
+  "env": {
+    "es6": true
+  },
+  "rules": {
+    "curly":"error",
+    "semi": [
+      "error",
+      "always"
+    ],
+    "brace-style": ["error","allman", {"allowSingleLine":false}],
+    "quotes": [
+      "error",
+      "backtick"
+    ],
+    "space-before-function-paren": [
+      "error",
+      "never"
+    ],
+    "object-curly-newline": ["error", "always"],
+    "@typescript-eslint/semi":[
+      "error",
+      "always"
+    ],
+    "@typescript-eslint/quotes":[
+      "error",
+      "backtick"
+    ],
+    "@typescript-eslint/space-before-function-paren":"off",
+    "@typescript-eslint/brace-style":["error","allman", {"allowSingleLine":false}]
+  }
+}
