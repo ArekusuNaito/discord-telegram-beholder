@@ -97,15 +97,13 @@ function main(): void
   });
 
   // DISCORD FUNCTIONALITY IS READY FOR US
-  telegramBot.hears(`hi`, async(ctx) => await ctx.reply(`Hey there`));
-  telegramBot.hears(`subscribe`, async(ctx) =>
+  telegramBot.command(`subscribe`, async(ctx) =>
   {
     // add the user that wants to subscribe to our custom database
     // if the user is already there, well,  dont add it, it already exists
     const subcribingChatID: number = ctx.message.chat.id;
     const telegramUser = ctx.message.from;
     const isUserInDatabase = database.find(userEntry => userEntry.chatId === subcribingChatID);
-    console.log(isUserInDatabase);
     if (isUserInDatabase != null)
     {
       await ctx.reply(`Morro, ya esta suscrito, no manche, que le pasa?`);
@@ -118,7 +116,22 @@ function main(): void
 
     writeFileSync(pathToDatabase, JSON.stringify(database, null, 4), `utf-8`);
 
-    await ctx.reply(`Ahora recibiras mensajes cuando alguien entre al canal de voz de nuestro Discord`);
+    await ctx.reply(`Ahora recibiras mensajes cuando alguien entre al canal de voz de nuestro Discord. Para no recibir mensajes que los usuarios se unieron a discord, utiliza el comando:\n/unsubscribe`);
+  });
+
+  telegramBot.command(`unsubscribe`, async(ctx) =>
+  {
+    const telegramUser = ctx.message.from;
+    const isUserInDatabase = database.find(userEntry => userEntry.id === telegramUser.id);
+    if (isUserInDatabase != null)
+    {
+      const databaseWithoutUnsubscribedUser = database.filter(userEntry => userEntry.id !== telegramUser.id);
+
+      // TODO: Make a function to save to database, seems to be duplicated in 3 places
+      database = databaseWithoutUnsubscribedUser;
+      writeFileSync(pathToDatabase, JSON.stringify(databaseWithoutUnsubscribedUser, null, 4), `utf-8`);
+      await ctx.reply(`Ya no se enviaran mensajes de que los usuarios se unieron al canal de discord. Puedes resubscribirte escribiendo:\n/subscribe`);
+    }
   });
 
   telegramBot.launch();
