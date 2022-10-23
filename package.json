@@ -5,8 +5,8 @@
   "main": "node dist/index.ts",
   "type": "module",
   "scripts": {
-    "compile": "tsc && node dist/main.js",
-    "compile:watch": "nodemon --watch src/ --exec \"npm run compile\"  --ext ts",
+    "build": "tsc",
+    "build:watch": "nodemon --watch src/ --exec \"npm run compile\"  --ext ts",
     "execute": "node dist/index.js",
     "test": "jest"
   },
