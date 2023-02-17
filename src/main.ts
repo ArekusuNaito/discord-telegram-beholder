@@ -36,11 +36,7 @@ interface UserEntry
   discord?: DiscordUserEntry
 }
 
-const discordClient = null;
-
 const prisma = new PrismaClient();
-
-const database: UserEntry[] = [];
 
 function main(): void
 {
@@ -101,7 +97,7 @@ function main(): void
   {
     // add the user that wants to subscribe to our custom database
     // if the user is already there, well,  dont add it, it already exists
-    const subcribingChatID: number = ctx.message.chat.id;
+    // const subcribingChatID: string = ctx.message.chat.id.toString();
     const telegramUser = ctx.message.from;
     console.log(`/subscribe from ${telegramUser.id}:${telegramUser.username ?? ``}`);
     // telegramUser.id => prisma.User.telegramId => postgres.User.telegram_id
@@ -112,14 +108,14 @@ function main(): void
     {
       const databaseUser = await prisma.user.findUnique({
         where: {
-          telegramId: telegramUser.id
+          telegramId: String(telegramUser.id)
         }
       });
       if (databaseUser == null)
       {
         await prisma.user.create({
           data: {
-            telegramId: telegramUser.id,
+            telegramId: String(telegramUser.id),
             telegramUsername: telegramUser.username
           }
         });
@@ -145,7 +141,7 @@ function main(): void
     {
       const databaseUser = await prisma.user.findUnique({
         where: {
-          telegramId: telegramUser.id
+          telegramId: String(telegramUser.id)
         }
       });
 
