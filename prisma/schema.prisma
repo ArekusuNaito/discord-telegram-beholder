@@ -9,7 +9,7 @@ datasource db {
 
 model User {
   telegramId Int @id
-  discordId Int
+  discordId Int? @unique
   telegramUsername String? @default("<PENDING>")
 
   // @@unique([id, itemClassId])

@@ -11,21 +11,36 @@ import {
 } from 'discord.js';
 
 import {
-  writeFileSync, readFileSync, existsSync as fileExistsSync
-} from 'fs';
+  PrismaClient
+} from '@prisma/client';
 
 dotenvConfig();
-// Up to this point, environment variables are loaded from the OS to our program
 
-// creating a CUSTOM TYPE
 interface TelegramUserEntry
 {
   id: number
   chatId: number
   username?: string
 }
-const pathToDatabase: string = `./user-subscriptions.db`;
-let database: TelegramUserEntry[] = [];
+
+interface DiscordUserEntry
+{
+  id: string
+  username: string
+  discriminator: string
+}
+
+interface UserEntry
+{
+  telegram: TelegramUserEntry
+  discord?: DiscordUserEntry
+}
+
+const discordClient = null;
+
+const prisma = new PrismaClient();
+
+const database: UserEntry[] = [];
 
 function main(): void
 {
@@ -38,7 +53,7 @@ function main(): void
 
   if (process.env.TELEGRAM_BOT_TOKEN === undefined || process.env.DISCORD_BOT_TOKEN === undefined)
   {
-    return;
+    throw new Error(`Environment variables are not defined. Check TELEGRAM_BOT_TOKEN and DISCORD_BOT_TOKEN`);
   }
   const telegramBot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 
@@ -46,13 +61,8 @@ function main(): void
   {
     const botName: string = c.user.tag;
     console.log(`Ready! Logged in as ${botName}`);
-    if (!fileExistsSync(pathToDatabase))
-    {
-      writeFileSync(pathToDatabase, ``, `utf-8`);
-    }
-
-    const rawStringDatabase = readFileSync(pathToDatabase, `utf-8`);
-    database = JSON.parse(rawStringDatabase) as TelegramUserEntry[];
+    // TODO: 👇👇
+    // Fetch all data from the database to RAM
   });
 
   // Log in to Discord with your client's token
@@ -60,77 +70,105 @@ function main(): void
 
   discordBot.on(Events.VoiceStateUpdate, async(oldState, newState) =>
   {
-    const newUser = oldState.member?.user;
-    // const oldUser = oldState.member?.user;
-    // const debugObject = {
-    //   oldState: {
-    //     channelId: oldState.channelId,
-    //     user: oldUser?.username,
-    //     isStreaming: oldState.streaming,
-    //     isMuted: oldState.mute
-    //   },
-    //   newState: {
-    //     channelId: newState.channelId,
-    //     user: newUser?.username,
-    //     isStreaming: newState.streaming,
-    //     isMuted: newState.mute
-    //   }
-    // };
-    // console.log(debugObject);
+    const newUser = newState.member?.user;
+    console.log(`Discord: Voice State Update`, newUser?.id, newUser?.username);
+
+    const channelName = newState.channel?.name || oldState.channel?.name || `Tomodachi No Mori (El Bosque de los Amiguitos)`;
     if (!oldState.channelId)
     {
-      for (const telegramUserEntry of database)
+      const subscribedUsers = await prisma.user.findMany();
+
+      for (const userEntry of subscribedUsers)
       {
-        const messageIfNickName = `${newState.member?.nickname} (${newUser?.username}) joined Favelita`;
-        const messageIfOnlyUsername = `${newUser?.username} joined Favelita`;
+        const messageIfNickName = `${newState.member?.nickname} (${newUser?.username}) joined ${channelName}`;
+        const messageIfOnlyUsername = `${newUser?.username} joined ${channelName}`;
         const telegramMessage = newState.member?.nickname ? (messageIfNickName) : messageIfOnlyUsername;
-        await telegramBot.telegram.sendMessage(telegramUserEntry.chatId, telegramMessage);
+
+        // console.log(userEntry, newState.member?.id, newState.member?.id, newState.member?.user.username, newState.member?.user.discriminator);
+
+        await telegramBot.telegram.sendMessage(userEntry.telegramId, telegramMessage);
       }
     }
     if (!newState.channelId)
     {
-      // console.log(`someone left`);
+      // Place code here when someone leaves
     }
-
-    // console.log(`newState is`, newState.member?.);
-    console.log(`~~~~~~ ~~~~~~~~~~~~~~`);
   });
 
-  // DISCORD FUNCTIONALITY IS READY FOR US
+  // DISCORD FUNCTIONALITY IS READY FOR US 👆
+
   telegramBot.command(`subscribe`, async(ctx) =>
   {
     // add the user that wants to subscribe to our custom database
     // if the user is already there, well,  dont add it, it already exists
     const subcribingChatID: number = ctx.message.chat.id;
     const telegramUser = ctx.message.from;
-    const isUserInDatabase = database.find(userEntry => userEntry.chatId === subcribingChatID);
-    if (isUserInDatabase != null)
+    console.log(`/subscribe from ${telegramUser.id}:${telegramUser.username ?? ``}`);
+    // telegramUser.id => prisma.User.telegramId => postgres.User.telegram_id
+
+    // TODO: Check with our postgres database if the user already exists
+
+    try
     {
-      await ctx.reply(`Morro, ya esta suscrito, no manche, que le pasa?`);
-      return;
+      const databaseUser = await prisma.user.findUnique({
+        where: {
+          telegramId: telegramUser.id
+        }
+      });
+      if (databaseUser == null)
+      {
+        await prisma.user.create({
+          data: {
+            telegramId: telegramUser.id,
+            telegramUsername: telegramUser.username
+          }
+        });
+        await ctx.reply(`Ahora recibiras mensajes cuando alguien entre al canal de voz de nuestro Discord. Para no recibir mensajes que los usuarios se unieron a discord, utiliza el comando:\n/unsubscribe`);
+      }
+      else
+      {
+        await ctx.reply(`Morro, ya esta suscrito, no manche, que le pasa?`);
+      }
     }
-
-    database.push({
-      chatId: subcribingChatID, id: telegramUser.id, username: telegramUser.username
-    });
-
-    writeFileSync(pathToDatabase, JSON.stringify(database, null, 4), `utf-8`);
-
-    await ctx.reply(`Ahora recibiras mensajes cuando alguien entre al canal de voz de nuestro Discord. Para no recibir mensajes que los usuarios se unieron a discord, utiliza el comando:\n/unsubscribe`);
+    catch (error)
+    {
+      console.error(error, telegramUser.username, telegramUser.id);
+      console.error(`Subscribe error`);
+    }
   });
 
   telegramBot.command(`unsubscribe`, async(ctx) =>
   {
     const telegramUser = ctx.message.from;
-    const isUserInDatabase = database.find(userEntry => userEntry.id === telegramUser.id);
-    if (isUserInDatabase != null)
+    console.log(`/unsubscribe from ${telegramUser.id}:${telegramUser.username ?? ``}`);
+    try
     {
-      const databaseWithoutUnsubscribedUser = database.filter(userEntry => userEntry.id !== telegramUser.id);
+      const databaseUser = await prisma.user.findUnique({
+        where: {
+          telegramId: telegramUser.id
+        }
+      });
 
-      // TODO: Make a function to save to database, seems to be duplicated in 3 places
-      database = databaseWithoutUnsubscribedUser;
-      writeFileSync(pathToDatabase, JSON.stringify(databaseWithoutUnsubscribedUser, null, 4), `utf-8`);
-      await ctx.reply(`Ya no se enviaran mensajes de que los usuarios se unieron al canal de discord. Puedes resubscribirte escribiendo:\n/subscribe`);
+      // If user exists
+      if (databaseUser != null)
+      {
+        await prisma.user.delete({
+          where: {
+            telegramId: databaseUser.telegramId
+          }
+        });
+        await ctx.reply(`Ya no se enviaran mensajes de que los usuarios se unieron al canal de discord. Puedes resubscribirte escribiendo:\n/subscribe`);
+      }
+      else
+      {
+        await ctx.reply(`Este usuario no esta subscrito al servicio.`);
+      }
+    }
+    catch (error)
+    {
+      console.error(error, telegramUser.username, telegramUser.id);
+      console.error(`Unsubcribe error`);
+      await ctx.reply(`Error al desuscribirse al servicio. Contacte a los Developers.`);
     }
   });
 
